@@ -10,6 +10,9 @@ djangorestframework = "*"
 psycopg = {extras = ["pool", "binary"], version = "*"}
 django-filter = "*"
 djangorestframework-simplejwt = "*"
+numpy = "*"
+pandas = "*"
+scikit-learn = "1.2.2"
 
 [dev-packages]
 

@@ -10,6 +10,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.filters import SearchFilter, OrderingFilter
 from .models import Author, Book
 from .serializers import AuthorSerializer, BookSerializer, UserSerializer
+from .recommender import get_combined_recommendations
 
 
 class AuthorViewSet(ModelViewSet):
@@ -37,12 +38,12 @@ class BookViewSet(ModelViewSet):
     search_fields = ['title', 'authors__first_name', 'authors__last_name', 'isbn']
     ordering_fields = ['title', 'published_date']
     
-    def get_queryset(self):
-        queryset = Book.objects.all()
-        author_id = self.request.query_params.get('author_id')
-        if author_id:
-            queryset = queryset.filter(authors__id=author_id)
-        return queryset
+    # def get_queryset(self):
+    #     queryset = Book.objects.all()
+    #     author_id = self.request.query_params.get('author_id')
+    #     if author_id:
+    #         queryset = queryset.filter(authors__id=author_id)
+    #     return queryset
     
     def create(self, request):
         data = request.data
@@ -78,8 +79,6 @@ def register(request):
         return Response({'message': 'User registered successfully.'}, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# Create Two Views 1. Add a Book to user's favorite list 2. Remove a Book from user's favorite list
-# User.add_to_class('favorite_books', models.ManyToManyField(Book, related_name='favorited_by'))
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
@@ -97,7 +96,15 @@ def add_to_favorites(request, user_id, book_id):
         return Response({'error': 'You can only have up to 20 favorite books.'}, status=status.HTTP_400_BAD_REQUEST)
 
     user.favorite_books.add(book)
-    return Response({'message': 'Book added to favorites.'}, status=status.HTTP_200_OK)
+    
+    # Fetch all books favorited by the user
+    favorite_books = user.favorite_books.all()
+    # Fetch titles of all books favorited by the user
+    favorite_books_titles = [book.title for book in favorite_books]
+    
+    recommened_books = get_combined_recommendations(favorite_books_titles)
+    
+    return Response({'message': 'Book added to favorites.', 'recommended': recommened_books}, status=status.HTTP_200_OK)
 
 
 @api_view(['PATCH'])

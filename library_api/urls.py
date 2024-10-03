@@ -16,11 +16,3 @@ urlpatterns = [
     path('users/<int:user_id>/favorites/add/<int:book_id>/', views.add_to_favorites),
     path('users/<int:user_id>/favorites/remove/<int:book_id>/', views.remove_from_favorites),
 ]
-
-# urlpatterns = [
-
-#     # path("users/", views.users_List),
-#     # path("users/<int:user_id>/", views.user_Detail),
-#     # path("users/<int:user_id>/favorite/", views.user_Favorite),
-#     # path("users/<int:user_id>/favorite/<int:book_id>/", views.user_Favorite),
-# ]
