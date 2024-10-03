@@ -1,21 +1,50 @@
-from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, get_list_or_404
+from django_filters.rest_framework import DjangoFilterBackend
+from django.contrib.auth.models import User
+from rest_framework import permissions
 from rest_framework.decorators import api_view
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
+from rest_framework.filters import SearchFilter, OrderingFilter
 from .models import Author, Book
-from .serializers import AuthorSerializer, BookSerializer
+from .serializers import AuthorSerializer, BookSerializer, UserSerializer
 
 
-class BookList(APIView):
-    def get(self, request):
-        books = get_list_or_404(Book)
-        serializer = BookSerializer(books, many=True)
-        return Response(serializer.data)
+class AuthorViewSet(ModelViewSet):
+    queryset = Author.objects.all()
+    serializer_class = AuthorSerializer
+    lookup_field = 'id'
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_fields = ['first_name', 'last_name']
+    search_fields = ['first_name', 'last_name']
+    ordering_fields = ['first_name', 'last_name', 'dob']
     
-    def post(self, request):
+    def destroy(self, request, *args, **kwargs):
+        if Author.objects.filter(pk=kwargs['id']).books.exists():
+            return Response({'error': 'Cannot delete an author with associated books.'}, status=status.HTTP_400_BAD_REQUEST)
+        return super().destroy(request, *args, **kwargs)
+    
+    
+class BookViewSet(ModelViewSet):
+    queryset = Book.objects.all()
+    serializer_class = BookSerializer
+    lookup_field = 'id'
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['title', 'authors__first_name', 'authors__last_name', 'isbn']
+    ordering_fields = ['title', 'published_date']
+    
+    def get_queryset(self):
+        queryset = Book.objects.all()
+        author_id = self.request.query_params.get('author_id')
+        if author_id:
+            queryset = queryset.filter(authors__id=author_id)
+        return queryset
+    
+    def create(self, request):
         data = request.data
         author_ids = data.pop('authors', [])
         serializer = BookSerializer(data=data)
@@ -27,15 +56,8 @@ class BookList(APIView):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-
-class BookDetail(APIView):
-    def get(self, request, book_id):
-        book = get_object_or_404(Book, pk=book_id)
-        serializer = BookSerializer(book)
-        return Response(serializer.data)
-    
-    def put(self, request, book_id):
-        book = get_object_or_404(Book, pk=book_id)
+    def update(self, request, id):
+        book = get_object_or_404(Book, pk=id)
         data = request.data
         author_ids = data.pop('authors', [])
         serializer = BookSerializer(book, data=data)
@@ -47,45 +69,11 @@ class BookDetail(APIView):
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    def delete(self, request, book_id):
-        book = get_object_or_404(Book, pk=book_id)
-        book.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    
 
-class AuthorList(APIView):
-    def get(self, request):
-        authors = get_list_or_404(Author)
-        serializer = AuthorSerializer(authors, many=True)
-        return Response(serializer.data)
-    
-    def post(self, request):
-        serializer = AuthorSerializer(data=request.data)
-        if serializer.is_valid():
-            author = serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-class AuthorDetail(APIView):
-    def get(self, request, author_id):
-        author = get_object_or_404(Author, pk=author_id)
-        serializer = AuthorSerializer(author)
-        return Response(serializer.data)
-    
-    def put(self, request, author_id):
-        author = get_object_or_404(Author, pk=author_id)
-        serializer = AuthorSerializer(author, data=request.data)
-        if serializer.is_valid():
-            author = serializer.save()
-            return Response(serializer.data)
-        
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-    def delete(self, request, author_id):
-        author = get_object_or_404(Author, pk=author_id)
-        if author.books.exists():
-            return Response({'error': 'Cannot delete an author with associated books.'}, status=status.HTTP_400_BAD_REQUEST)
-        author.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-    
+@api_view(['POST'])
+def register(request):
+    serializer = UserSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({'message': 'User registered successfully.'}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

@@ -8,6 +8,8 @@ django = "*"
 django-environ = "*"
 djangorestframework = "*"
 psycopg = {extras = ["pool", "binary"], version = "*"}
+django-filter = "*"
+djangorestframework-simplejwt = "*"
 
 [dev-packages]
 
