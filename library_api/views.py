@@ -2,7 +2,7 @@ from django.shortcuts import get_object_or_404, get_list_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 from django.contrib.auth.models import User
 from rest_framework import permissions
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -77,3 +77,57 @@ def register(request):
         serializer.save()
         return Response({'message': 'User registered successfully.'}, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# Create Two Views 1. Add a Book to user's favorite list 2. Remove a Book from user's favorite list
+# User.add_to_class('favorite_books', models.ManyToManyField(Book, related_name='favorited_by'))
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def add_to_favorites(request, user_id, book_id):
+    if request.user.id != user_id:
+        return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        user = User.objects.get(pk=user_id)
+        book = Book.objects.get(pk=book_id)
+    except (User.DoesNotExist, Book.DoesNotExist):
+        return Response({'error': 'User or book not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if user.favorite_books.count() >= 20:
+        return Response({'error': 'You can only have up to 20 favorite books.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.favorite_books.add(book)
+    return Response({'message': 'Book added to favorites.'}, status=status.HTTP_200_OK)
+
+
+@api_view(['PATCH'])
+@permission_classes([permissions.IsAuthenticated])
+def remove_from_favorites(request, user_id, book_id):
+    if request.user.id != user_id:
+        return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+    try:
+        user = User.objects.get(pk=user_id)
+        book = Book.objects.get(pk=book_id)
+    except (User.DoesNotExist, Book.DoesNotExist):
+        return Response({'error': 'User or book not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    user.favorite_books.remove(book)
+    return Response({'message': 'Book removed from favorites.'}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def favorites_list(request, user_id):
+    # Ensure the request is made by the user or an admin
+    if request.user.id != user_id and not request.user.is_staff:
+        return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+    
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    favorite_books = user.favorite_books.all()
+    serializer = BookSerializer(favorite_books, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
