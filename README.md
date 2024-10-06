@@ -30,7 +30,7 @@ DB_NAME=library
 ```
 
 ## 3. Pre-Requirement
-Since. the project uses **Docker** therefore, it is essential that your system has Docker installed and configured on it to proceed further.
+Since the project uses **Docker** therefore, it is essential that your system has Docker installed and configured on it to proceed further.
 
 ## 4. Executing the Project
 While in the project directory execute the following command from shell. 
