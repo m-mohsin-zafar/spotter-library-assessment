@@ -41,7 +41,7 @@ The server should be accessible at;
 http://localhost:8000
 
 ## 5. Migrations and Seed (One Time Only)
-Once, the docker containers are up, and if it is the first time the project has been executed them you need to perform some extra steps.
+Once, the docker containers are up, and if it is the first time the project has been executed then you need to perform some extra steps.
 1. Make Migrations
 ```
 docker-compose exec backend pipenv run python manage.py makemigrations
