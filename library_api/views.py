@@ -82,19 +82,16 @@ def register(request):
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
-def add_to_favorites(request, user_id, book_id):
-    if request.user.id != user_id:
-        return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
-
+def add_to_favorites(request, book_id):
+    user = request.user
     try:
-        user = User.objects.get(pk=user_id)
         book = Book.objects.get(pk=book_id)
-    except (User.DoesNotExist, Book.DoesNotExist):
-        return Response({'error': 'User or book not found.'}, status=status.HTTP_404_NOT_FOUND)
-
+    except Book.DoesNotExist:
+        return Response({'error': 'Book not found.'}, status=status.HTTP_404_NOT_FOUND)
+    
     if user.favorite_books.count() >= 20:
         return Response({'error': 'You can only have up to 20 favorite books.'}, status=status.HTTP_400_BAD_REQUEST)
-
+    
     user.favorite_books.add(book)
     
     # Fetch all books favorited by the user
@@ -109,26 +106,29 @@ def add_to_favorites(request, user_id, book_id):
 
 @api_view(['PATCH'])
 @permission_classes([permissions.IsAuthenticated])
-def remove_from_favorites(request, user_id, book_id):
-    if request.user.id != user_id:
-        return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
-
+def remove_from_favorites(request, book_id):
+    user = request.user
     try:
-        user = User.objects.get(pk=user_id)
         book = Book.objects.get(pk=book_id)
-    except (User.DoesNotExist, Book.DoesNotExist):
-        return Response({'error': 'User or book not found.'}, status=status.HTTP_404_NOT_FOUND)
+    except Book.DoesNotExist:
+        return Response({'error': 'Book not found.'}, status=status.HTTP_404_NOT_FOUND)
 
     user.favorite_books.remove(book)
-    return Response({'message': 'Book removed from favorites.'}, status=status.HTTP_200_OK)
+    
+    # Fetch all books favorited by the user
+    favorite_books = user.favorite_books.all()
+    # Fetch titles of all books favorited by the user
+    favorite_books_titles = [book.title for book in favorite_books]
+    
+    recommened_books = get_combined_recommendations(favorite_books_titles)
+    
+    return Response({'message': 'Book removed from favorites.', 'recommended': recommened_books}, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
-def favorites_list(request, user_id):
-    # Ensure the request is made by the user or an admin
-    if request.user.id != user_id and not request.user.is_staff:
-        return Response({'error': 'Permission denied.'}, status=status.HTTP_403_FORBIDDEN)
+def favorites_list(request):
+    user_id = request.user.id
     
     try:
         user = User.objects.get(pk=user_id)

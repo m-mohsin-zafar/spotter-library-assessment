@@ -1,0 +1,32 @@
+services:
+  # Database (PostgreSQL) Service
+  db:
+    image: postgres:16
+    container_name: postgres_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"  # Map container's port 5432 to host's port 5433
+    env_file:
+      - .env  # Load environment variables from the .env file
+    environment:
+      POSTGRES_DB: ${DB_NAME}  # Ensure the 'library' database is created
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+
+  # Backend (Django) Service
+  backend:
+    build: .
+    container_name: django_backend
+    command: pipenv run python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/usr/src/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db  # Ensure the db container starts before backend
+    env_file:
+      - .env  # Load environment variables from the .env file
+
+volumes:
+  postgres_data:  # For storing PostgreSQL data persistently
